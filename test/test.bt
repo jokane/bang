@@ -1,0 +1,23 @@
+templates:
+  presentation:
+    default_arg: 'title'
+    text: "<html><body>!slide[$title]{<b>$title</b>}$body</body></html>"
+
+  slide:
+    default_arg: title
+    text: "<section><h1>$title</h1>$body</section>"
+
+  bigskip:
+    text: "<div style='paddig-bottom: 20px'></div>"
+
+  div:
+    arg: 'attribs'
+    arg@: 'style'
+    params:
+      '': 'attribs'
+      '@': 'style'
+    text: "<div $attribs style='$style'>$body</div>"
+
+  tt:
+    text: "<tt>$body</tt>"
+

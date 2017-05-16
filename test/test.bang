@@ -1,0 +1,12 @@
+!presentation[A demonstration \} of !tt{bang}]{
+  !slide[Title slide]{
+    Slide text.
+    !bigskip
+    More slide text.
+  }
+
+  !slide[]{
+    Another slide.
+  }
+}
+

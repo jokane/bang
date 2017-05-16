@@ -1,0 +1,231 @@
+#!/usr/bin/env python
+
+import argparse
+import re
+import yaml
+import sys
+import pprint
+
+def scan_matching(in_text, start):
+  # Scan through in_text, starting from the given start index (which should be
+  # the index of an opening delimited), until the matching closing delimiter.
+  # Return the index of the closing delimiter.
+  verbose = False
+
+  stack = list(in_text[start])
+  i = start + 1
+
+  while stack:
+    c = in_text[i]
+    if verbose: print "Checking character", c, "Stack:", stack
+    if c == ']':
+      m = stack.pop()
+      if m != '[': raise Exception('Mismatched delimiters. %c %c' % (m, c))
+      if verbose: print "[ matched with ]"
+    if c == '}':
+      m = stack.pop()
+      if m != '{': raise Exception('Mismatched delimiters. %c %c' % (m, c))
+      if verbose: print "{ matched with }"
+    if c in '[{':
+      stack.append(c)
+    if c in '\\':
+      i+= 1
+    i+= 1 
+  return i
+
+def find_template(in_text, start):
+  # Look for a template in the given text, starting at the given position.
+  # Return the starting and ending indices of the template we find, along with
+  # the name, arguments, and body.
+  verbose = False
+
+  # Is there any text left to search?
+  if start >= len(in_text):
+    return None
+
+  # Where does the next template in the string start?
+  i = start
+  while in_text[i] != '!':
+    i+=1
+    if i >= len(in_text): return None
+
+  if verbose: print "Template starts at position %d." % i
+  bang_index = i
+  i+=1 # Move past the !.
+  name_start = i
+
+  # Where does the name of the first template end?
+  while in_text[i].isalnum():
+    i+=1
+  name_end = i
+  name = in_text[name_start:name_end]
+  if verbose: print "Name: %s" % name
+
+  # If there are arguments, grab them.
+  if in_text[i] == '[':
+    arguments_start = i+1
+    arguments_end = scan_matching(in_text, i) - 1
+    arguments = in_text[arguments_start:arguments_end]
+    i = arguments_end + 1
+    if verbose: print "Arguments:", arguments
+  else:
+    if verbose: print "No arguments."
+    arguments = None
+
+  # If there is a body, grab it.
+  if in_text[i] == '{':
+    body_start = i+1
+    body_end = scan_matching(in_text, i) - 1
+    body = in_text[body_start:body_end]
+    i = body_end + 1
+    if verbose: print "Body:", body
+  else:
+    if verbose: print "No body."
+    body = ""
+  
+  return (bang_index, i, name, arguments, body)
+
+def expand_template(config, name, arguments, body):
+  # Find the appropriate template in the config.
+  try:
+    spec = config['templates'][name]
+  except KeyError:
+    raise Exception('Template %s is not defined.' % name)
+
+  # Start with the body.
+  values = dict()
+  values['body'] = body
+
+  # Separate the arguments.
+  if arguments is not None:
+    default_arg = arguments # TODO: Split this up using the sigils, etc.
+    try:
+      values[spec['default_arg']] = default_arg
+    except KeyError:
+      raise Exception('Template %s instantiated with default argument (%s), but the template spec has no default argument.' % (name, default_arg))
+
+  # Construct the final string.
+  text = spec['text']
+
+  def sub_arg(match):
+    val_name = match.group(1)
+    try:
+      value = values[val_name]
+      return value
+    except KeyError:
+      raise Exception("Template %s needs a %s, which is missing." % (name, val_name))
+
+  text = re.sub(r'\$([A-Za-z]*)', sub_arg, text)
+
+  return text
+
+
+def bang(config, text):
+  # Find a template in the given string.  Replace it with its appropriate
+  # expansion.
+  
+  while True:
+    ft_result = find_template(text, 0)
+    if ft_result is None: break
+    (template_start, template_end, name, arguments, body) = ft_result
+    expansion = expand_template(config, name, arguments, body)
+    text = text[:template_start] + expansion + text[template_end:]
+
+  return text
+
+
+## def bang(config, in_text):
+##   verbose = True
+## 
+##   out_text = ""
+## 
+##   # For keeping track of what we expect to see next.
+##   class State:
+##     Top = "top level"
+##     Name = "template name"
+##     Args = "template args"
+## 
+##   state = State.Top
+## 
+##   while in_text:
+##     c = in_text[0]
+##     if verbose: print "Matching character (%c) in state %s." % (c, state)
+## 
+##     # An ordindary character?
+##     if state == State.Top and c.isalnum():
+##       if verbose: print "-- Ordinary top-level text."
+##       out_text += c
+##       in_text = in_text[1:]
+##       continue
+## 
+##     # Start of a template?
+##     if state == State.Top and c == '!':
+##       if verbose: print "-- Start of template name."
+##       state = State.Name
+##       template_name = ""
+##       in_text = in_text[1:]
+##       continue
+## 
+##     # A character of a template name?
+##     if state == State.Name and c.isalnum():
+##       if verbose: print "-- Character in a template name."
+##       template_name
+##       in_text = in_text[1:]
+##       continue
+##       
+##       
+## 
+##     # Nothing else matched.  This must be an ordinary character.
+##     # if verbose: print "-- Ordinary character."
+##     # out_text += c
+##     # in_text = in_text[1:]
+##     raise Exception("Did not expect character %c in state %s" % (c, state))
+##    
+##   return out_text
+
+
+
+def main(args):
+  # Make sure we have reasonable filenames.
+  if not args.output_filename:
+    args.output_filename = re.sub('\.bang$', '.html', args.input_filename)
+  if not args.config_filename:
+    args.config_filename = re.sub('\.bang$', '.bt', args.input_filename)
+
+  args.job_name = re.sub('\.bang$', '', args.input_filename)
+
+  # Read the configuration.
+  config = yaml.load(open(args.config_filename, 'r'))
+
+  # Read the input, expand any templates in contains, and write the output.
+  in_text = open(args.input_filename, 'r').read()
+  out_text = bang(config, in_text)
+  open(args.output_filename, 'w').write(out_text)
+
+def go():
+  # Sort out the command line.
+  parser = argparse.ArgumentParser()
+  parser.add_argument(dest='input_filename', help='input filename')
+  parser.add_argument('--config', '-c', dest='config_filename', help='configuration filename', default=None)
+  parser.add_argument('--debug', '-d', dest='debug', help='show debugging information', action='store_true')
+  parser.add_argument('--output', '-o', dest='output_filename', help='output filename', default=None)
+  args = parser.parse_args()
+
+  # We only want stack traces in debug mode.
+  if args.debug:
+    main(args)
+  else:
+    try:
+      main(args)
+    except Exception as e:
+      print >>sys.stderr, "bang:", e
+      sys.exit(1) 
+
+
+
+
+
+if __name__ == '__main__':
+  go()
+
+

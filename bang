@@ -92,7 +92,7 @@ def expand_template(config, name, arguments, body):
   # plus signs.  Separate them.
   names = name.split('+')
 
-  # Get the config for each of these names. 
+  # Get the template specification for each of these names. 
   specs = list()
   for name in names:
     try:
@@ -144,7 +144,6 @@ def expand_template(config, name, arguments, body):
             values[arg] += val
           else:
             values[arg] = val
-          
 
   # Add in anything specified in the arguments to this instace.
   if arguments is not None:
@@ -265,25 +264,30 @@ def main(args):
   # Make sure we have reasonable filenames.
   if not args.output_filename:
     args.output_filename = re.sub('\.bang$', '.html', args.input_filename)
-  if not args.config_filename:
-    args.config_filename = re.sub('\.bang$', '.bt', args.input_filename)
 
-  args.job_name = re.sub('\.bang$', '', args.input_filename)
+  # Read the input.
+  text = open(args.input_filename, 'r').read()
 
-  # Read the configuration.
-  config = yaml.load(open(args.config_filename, 'r'))
-  check_config(config)
+  # Look for a config directive in the input.  Making config a list as a hack
+  # to make Python 2 happy.
+  config = [None, ]
+  def grab_config(match):
+    config_file_name = match.group(1)
+    config[0] = yaml.load(open(config_file_name, 'r'))
+    return ""
+  text = re.sub(r'^#config (.*)', grab_config, text, re.M)
+  config = config[0]
 
-  # Read the input, expand any templates in contains, and write the output.
-  in_text = open(args.input_filename, 'r').read()
-  out_text = bang(config, in_text)
-  open(args.output_filename, 'w').write(out_text)
+  # Expand any templates.
+  text = bang(config, text)
+
+  # Save the answer.
+  open(args.output_filename, 'w').write(text)
 
 def go():
   # Sort out the command line.
   parser = argparse.ArgumentParser()
   parser.add_argument(dest='input_filename', help='input filename')
-  parser.add_argument('--config', '-c', dest='config_filename', help='configuration filename', default=None)
   parser.add_argument('--debug', '-d', dest='debug', help='show debugging information', action='store_true')
   parser.add_argument('--output', '-o', dest='output_filename', help='output filename', default=None)
   args = parser.parse_args()

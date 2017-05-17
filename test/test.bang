@@ -1,4 +1,5 @@
 #config test.bt
+#outext html
 !presentation[A demonstration of !tt{bang}]{
 
   !slide[Title slide]{

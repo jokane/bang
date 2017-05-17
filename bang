@@ -196,56 +196,6 @@ def bang(config, text):
   return text
 
 
-## def bang(config, in_text):
-##   verbose = True
-## 
-##   out_text = ""
-## 
-##   # For keeping track of what we expect to see next.
-##   class State:
-##     Top = "top level"
-##     Name = "template name"
-##     Args = "template args"
-## 
-##   state = State.Top
-## 
-##   while in_text:
-##     c = in_text[0]
-##     if verbose: print "Matching character (%c) in state %s." % (c, state)
-## 
-##     # An ordindary character?
-##     if state == State.Top and c.isalnum():
-##       if verbose: print "-- Ordinary top-level text."
-##       out_text += c
-##       in_text = in_text[1:]
-##       continue
-## 
-##     # Start of a template?
-##     if state == State.Top and c == '!':
-##       if verbose: print "-- Start of template name."
-##       state = State.Name
-##       template_name = ""
-##       in_text = in_text[1:]
-##       continue
-## 
-##     # A character of a template name?
-##     if state == State.Name and c.isalnum():
-##       if verbose: print "-- Character in a template name."
-##       template_name
-##       in_text = in_text[1:]
-##       continue
-##       
-##       
-## 
-##     # Nothing else matched.  This must be an ordinary character.
-##     # if verbose: print "-- Ordinary character."
-##     # out_text += c
-##     # in_text = in_text[1:]
-##     raise Exception("Did not expect character %c in state %s" % (c, state))
-##    
-##   return out_text
-
-
 def check_config(config):
   # Perform some sanity checks on a given configuration.
   for template_name in config['templates']:
@@ -261,27 +211,34 @@ def check_config(config):
 
 
 def main(args):
-  # Make sure we have reasonable filenames.
-  if not args.output_filename:
-    args.output_filename = re.sub('\.bang$', '.html', args.input_filename)
-
   # Read the input.
   text = open(args.input_filename, 'r').read()
 
-  # Look for a config directive in the input.  Making config a list as a hack
-  # to make Python 2 happy.
+  # Look for a config directive in the input.  Making config a list is a Python
+  # 2 hack to get data out of the callback function into a local variable here.
   config = [None, ]
   def grab_config(match):
     config_file_name = match.group(1)
     config[0] = yaml.load(open(config_file_name, 'r'))
     return ""
-  text = re.sub(r'^#config (.*)', grab_config, text, re.M)
+  text = re.sub(r'^#config (.*)', grab_config, text, flags=re.M)
   config = config[0]
+
+  # Look for an output extension directive in the input.
+  outext = [None, ]
+  def grab_outext(match):
+    outext[0] = match.group(1)
+    return ""
+  text = re.sub(r'^#outext (.*)', grab_outext, text, flags=re.M)
+  outext = outext[0]
 
   # Expand any templates.
   text = bang(config, text)
 
   # Save the answer.
+  if not args.output_filename:
+    args.output_filename = re.sub('bang$', outext, args.input_filename)
+
   open(args.output_filename, 'w').write(text)
 
 def go():

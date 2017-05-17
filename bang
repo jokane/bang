@@ -238,6 +238,11 @@ def main(args):
   text = re.sub(r'^#outext (.*)', grab_outext, text, flags=re.M)
   outext = outext[0]
 
+  # Perform any substitutions requested by the config.
+  for sub in config['substitutions']:
+    print sub
+    text = re.sub(sub['from'], sub['to'], text)
+
   # Expand any templates.
   text = bang(config, text)
 

@@ -47,7 +47,8 @@ def find_template(in_text, start):
 
   # Where does the next template in the string start?
   i = start
-  while in_text[i] != '!':
+  while True:
+    if in_text[i] == '!' and in_text[i+1].isalpha(): break
     i+=1
     if i >= len(in_text): return None
 
@@ -187,7 +188,7 @@ def expand_template(config, name, arguments, body):
 
 def bang(config, text):
   # Find a template in the given string.  Replace it with its appropriate
-  # expansion.
+  # expansion.  Repeat until no templates are left.
   
   while True:
     ft_result = find_template(text, 0)

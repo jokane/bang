@@ -221,7 +221,10 @@ def main(args):
   config = [None, ]
   def grab_config(match):
     config_file_name = match.group(1)
-    config[0] = yaml.load(open(config_file_name, 'r'))
+    try:
+      config[0] = yaml.load(open(config_file_name, 'r'))
+    except Exception as e:
+      raise Exception("Error reading configuration %s: %s" % (config_file_name, e))
     return ""
   text = re.sub(r'^#config (.*)', grab_config, text, flags=re.M)
   config = config[0]

@@ -1,4 +1,4 @@
-#config test.bt
+#config test.bc
 #outext html
 !presentation[A demonstration of !tt{bang}]{
 

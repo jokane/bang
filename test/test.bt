@@ -1,22 +1,49 @@
 templates:
   presentation:
-    default_arg: 'title'
-    text: "<html><body>!slide[$title]{<b>$title</b>}$body</body></html>"
+    default_arg: title
+    text: |
+      <html>
+          <body>
+          !slide[$title]{
+            <b>$title</b>
+          }
+          
+          $body
+        </body>
+      </html>
 
   slide:
     default_arg: title
-    text: "<section><h1>$title</h1>$body</section>"
+    text: |
+      <section>
+        <h1>$title</h1>
+        $body
+      </section>
 
-  bigskip:
-    text: "<div style='paddig-bottom: 20px'></div>"
+  img:
+    default_arg: src
+    special_args:
+      '@': style
+      '~': attribs
+    text: "<img src='$src' ?attribs style='?style'>"
 
   div:
-    arg: 'attribs'
-    arg@: 'style'
-    params:
-      '': 'attribs'
-      '@': 'style'
-    text: "<div $attribs style='$style'>$body</div>"
+    default_arg: attribs
+    special_args:
+      '@': style
+    text: "<div ?attribs style='?style'>$body</div>"
+
+  ib:
+    inherit_from: div
+    style: 'display: inline-block;'
+
+  vat:
+    inherit_from: div
+    style: 'vertical-align: top;'
+
+  bigskip:
+    inherit_from: div
+    style: "padding-bottom: 20px"
 
   tt:
     text: "<tt>$body</tt>"

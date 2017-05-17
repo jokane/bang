@@ -1,12 +1,20 @@
-!presentation[A demonstration \} of !tt{bang}]{
+!presentation[A demonstration of !tt{bang}]{
+
   !slide[Title slide]{
     Slide text.
+
+    !ib+vat+bigskip{Inline-block and vertical-align top.}
+
     !bigskip
+    
     More slide text.
+
+    !div{}
   }
 
   !slide[]{
     Another slide.
   }
+
 }
 

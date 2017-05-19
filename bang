@@ -168,6 +168,7 @@ def expand_template(config, name, arguments, body):
     raise Exception('Template %s has no text field.' % base_name)
 
   text = re.sub(r'\$\$', '___DOLLAR___', text)
+  text = re.sub(r'\?\?', '___QUESTION__', text)
   def sub_arg_required(match):
     val_name = match.group(1)
     try:
@@ -189,6 +190,7 @@ def expand_template(config, name, arguments, body):
   text = re.sub(r'\?([A-Za-z]*)', sub_arg_optional, text)
 
   text = re.sub('___DOLLAR___', '$', text)
+  text = re.sub('___QUESTION__', '?', text)
 
   return text
 

@@ -167,8 +167,9 @@ def expand_template(config, name, arguments, body):
   except KeyError:
     raise Exception('Template %s has no text field.' % base_name)
 
-  text = re.sub(r'\$\$', '___DOLLAR___', text)
-  text = re.sub(r'\?\?', '___QUESTION__', text)
+  text = re.sub(r'\$\$', '_____DOLLAR_____', text)
+
+  text = re.sub(r'\?\?', '_____QUESTION____', text)
   def sub_arg_required(match):
     val_name = match.group(1)
     try:
@@ -176,7 +177,7 @@ def expand_template(config, name, arguments, body):
       return value
     except KeyError:
       raise Exception("Template %s needs a %s, which is missing." % (name, val_name))
-  text = re.sub(r'\$([A-Za-z]*)', sub_arg_required, text)
+  text = re.sub(r'\$([A-Za-z]+)', sub_arg_required, text)
 
   def sub_arg_optional(match):
     val_name = match.group(1)
@@ -187,10 +188,10 @@ def expand_template(config, name, arguments, body):
       return value
     except KeyError:
       return ""
-  text = re.sub(r'\?([A-Za-z]*)', sub_arg_optional, text)
+  text = re.sub(r'\?([A-Za-z]+)', sub_arg_optional, text)
 
-  text = re.sub('___DOLLAR___', '$', text)
-  text = re.sub('___QUESTION__', '?', text)
+  text = re.sub('_____DOLLAR_____', '$', text)
+  text = re.sub('_____QUESTION____', '?', text)
 
   return text
 

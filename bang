@@ -62,6 +62,7 @@ def find_template(in_text, start):
     i+=1
   name_end = i
   name = in_text[name_start:name_end]
+
   if verbose: print "Name: %s" % name
 
   # If there are arguments, grab them.
@@ -95,11 +96,11 @@ def expand_template(config, name, arguments, body):
 
   # Get the template specification for each of these names. 
   specs = list()
-  for name in names:
+  for name1 in names:
     try:
-      specs.append(config['templates'][name])
+      specs.append(config['templates'][name1])
     except KeyError:
-      raise Exception('Template %s is not defined.' % name)
+      raise Exception('Template %s is not defined.' % name1)
 
   # If there are multiple templates, then they should all refer to one single
   # base template.  If there's just one, it could be a base template or an
@@ -107,19 +108,23 @@ def expand_template(config, name, arguments, body):
   if len(specs) == 0:
     raise Exception("Template instance seems to be missing a name.")
   elif len(specs) > 1:
+    print specs
     blend = True
   elif 'inherit_from' in specs[0]:
     blend = True
   else:
     blend = False
-  
+
   # Find the template that we'll actually use for the expansion.
   if blend:
     # Blended -- Make sure everyone inherits from the same place, and inherit
     # from there.
     base_name = None
     for spec in specs:
-      this_base_name = spec['inherit_from']
+      try:
+        this_base_name = spec['inherit_from']
+      except KeyError:
+        raise Exception('In blended template %s, one of the templates is missing its inherit_from. %s' % (name, spec))
       if base_name is None:
         base_name = this_base_name
       elif base_name != this_base_name:
@@ -174,6 +179,8 @@ def expand_template(config, name, arguments, body):
 
   def sub_arg_optional(match):
     val_name = match.group(1)
+    if val_name != base_spec['default_arg'] and ('special_args' not in base_spec or val_name not in base_spec['special_args'].values()):
+      raise Exception('Template text refers to ?%s, which is not a parameter.' % val_name)
     try:
       value = values[val_name]
       return value

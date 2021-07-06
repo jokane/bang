@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 import re
@@ -8,7 +8,7 @@ import pprint
 
 def scan_matching(in_text, start):
   # Scan through in_text, starting from the given start index (which should be
-  # the index of an opening delimited), until the matching closing delimiter.
+  # the index of an opening delimiter), until the matching closing delimiter.
   # Return the index of the closing delimiter.
   verbose = False
 
@@ -19,15 +19,15 @@ def scan_matching(in_text, start):
     if i >= len(in_text):
       raise Exception('Missing closing delimiter.  These remain open: %s' % ' '.join(stack))
     c = in_text[i]
-    if verbose: print "Checking character", c, "Stack:", stack
+    if verbose: print("Checking character", c, "Stack:", stack)
     if c == ']':
       m = stack.pop()
       if m != '[': raise Exception('Mismatched delimiters. %c %c' % (m, c))
-      if verbose: print "[ matched with ]"
+      if verbose: print("[ matched with ]")
     if c == '}':
       m = stack.pop()
       if m != '{': raise Exception('Mismatched delimiters. %c %c' % (m, c))
-      if verbose: print "{ matched with }"
+      if verbose: print("{ matched with }")
     if c in '[{':
       stack.append(c)
     if c in '\\':
@@ -52,7 +52,7 @@ def find_template(in_text, start):
     i+=1
     if i >= len(in_text): return None
 
-  if verbose: print "Template starts at position %d." % i
+  if verbose: print("Template starts at position %d." % i)
   bang_index = i
   i+=1 # Move past the !.
   name_start = i
@@ -63,7 +63,7 @@ def find_template(in_text, start):
   name_end = i
   name = in_text[name_start:name_end]
 
-  if verbose: print "Name: %s" % name
+  if verbose: print("Name: %s" % name)
 
   # If there are arguments, grab them.
   if in_text[i] == '[':
@@ -71,9 +71,9 @@ def find_template(in_text, start):
     arguments_end = scan_matching(in_text, i) - 1
     arguments = in_text[arguments_start:arguments_end]
     i = arguments_end + 1
-    if verbose: print "Arguments:", arguments
+    if verbose: print("Arguments:", arguments)
   else:
-    if verbose: print "No arguments."
+    if verbose: print("No arguments.")
     arguments = None
 
   # If there is a body, grab it.
@@ -82,9 +82,9 @@ def find_template(in_text, start):
     body_end = scan_matching(in_text, i) - 1
     body = in_text[body_start:body_end]
     i = body_end + 1
-    if verbose: print "Body:", body
+    if verbose: print("Body:", body)
   else:
-    if verbose: print "No body."
+    if verbose: print("No body.")
     body = None
   
   return (bang_index, i, name, arguments, body)
@@ -142,7 +142,7 @@ def expand_template(config, name, arguments, body):
   # If it's a blended template, add the values given in those inherited templates.
   if blend:
     for spec in specs:
-      for arg in [base_spec['default_arg'], ] + base_spec['special_args'].values():
+      for arg in [base_spec['default_arg'], ] + list(base_spec['special_args'].values()):
         if arg in spec:
           val = spec[arg]
           if arg in values:
@@ -188,7 +188,7 @@ def expand_template(config, name, arguments, body):
 
   def sub_arg_optional(match):
     val_name = match.group(1)
-    if val_name != base_spec['default_arg'] and ('special_args' not in base_spec or val_name not in base_spec['special_args'].values()):
+    if val_name != base_spec['default_arg'] and ('special_args' not in base_spec or val_name not in list(base_spec['special_args'].values())):
       raise Exception('Template text for %s refers to ?%s, which is not a parameter.' % (base_name, val_name))
     try:
       value = values[val_name]
@@ -293,7 +293,7 @@ def go():
     try:
       main(args)
     except Exception as e:
-      print >>sys.stderr, "bang:", e
+      print("bang:", e, file=sys.stderr)
       sys.exit(1) 
 
 

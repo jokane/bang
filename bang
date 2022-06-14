@@ -188,8 +188,8 @@ def expand_template(config, name, arguments, body):
 
   def sub_arg_optional(match):
     val_name = match.group(1)
-    if val_name != base_spec['default_arg'] and ('special_args' not in base_spec or val_name not in list(base_spec['special_args'].values())):
-      raise Exception('Template text for %s refers to ?%s, which is not a parameter.' % (base_name, val_name))
+    # if val_name != base_spec['default_arg'] and ('special_args' not in base_spec or val_name not in list(base_spec['special_args'].values())):
+    #   raise Exception('Template text for %s refers to ?%s, which is not a parameter.' % (base_name, val_name))
     try:
       value = values[val_name]
       return value

@@ -246,7 +246,12 @@ def main(args):
   def grab_config(match):
     config_file_name = match.group(1)
     try:
-      config[0] = yaml.load(open(config_file_name, 'r'))
+      # Original: config[0] = yaml.load(open(config_file_name, 'r'))
+      # Option 1 fix: (Specify the 'Loader' as a second param) -- FullLoader or SafeLoader:
+      #   config[0] = yaml.load(open(config_file_name, Loader=yaml.FullLoader, 'r'))
+      # Option 2 fix: (use the 'sugar' mehtods) safe_load or full_load
+      #   config[0] = yaml.full_load(open(config_file_name, 'r'))
+      config[0] = yaml.full_load(open(config_file_name, 'r'))
     except Exception as e:
       raise Exception("Error reading configuration %s: %s" % (config_file_name, e))
     return ""

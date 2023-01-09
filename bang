@@ -251,7 +251,6 @@ def main(args):
   text = re.sub(r'^#config (.*)', grab_config, text, flags=re.M)
   config = config[0]
   check_config(config)
->>>>>>> 762f0c702dab00bf165567a7e809072d23241db9
 
     # Look for an output extension directive in the input.
     outext = [None, ]

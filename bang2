@@ -1,0 +1,283 @@
+#!/usr/bin/env python3
+
+import argparse
+import re
+import yaml
+import sys
+import pprint
+
+def scan_matching(in_text, start):
+    # Scan through in_text, starting from the given start index (which should be
+    # the index of an opening delimiter), until the matching closing delimiter.
+    # Return the index of the closing delimiter.
+    verbose = False
+
+    stack = list(in_text[start])
+    i = start + 1
+
+    while stack:
+        if i >= len(in_text):
+            raise Exception('Missing closing delimiter.  These remain open: %s' % ' '.join(stack))
+        c = in_text[i]
+        if verbose: print("Checking character", c, "Stack:", stack)
+        if c == ']':
+            m = stack.pop()
+            if m != '[': raise Exception('Mismatched delimiters. %c %c' % (m, c))
+            if verbose: print("[ matched with ]")
+        if c == '}':
+            m = stack.pop()
+            if m != '{': raise Exception('Mismatched delimiters. %c %c' % (m, c))
+            if verbose: print("{ matched with }")
+        if c in '[{':
+            stack.append(c)
+        if c in '\\':
+            i+= 1
+        i+= 1 
+    return i
+
+def find_template(in_text, start):
+    # Look for a template in the given text, starting at the given position.
+    # Return the starting and ending indices of the template we find, along with
+    # the name, arguments, and body.
+    verbose = False
+
+    # Is there any text left to search?
+    if start >= len(in_text):
+        return None
+
+    # Where does the next template in the string start?
+    i = start
+    while True:
+        if in_text[i] == '!' and in_text[i+1].isalpha(): break
+        i+=1
+        if i >= len(in_text): return None
+
+    if verbose: print("Template starts at position %d." % i)
+    bang_index = i
+    i+=1 # Move past the !.
+    name_start = i
+
+    # Where does the name of the first template end?
+    while in_text[i].isalnum() or in_text[i] in '+':
+        i+=1
+    name_end = i
+    name = in_text[name_start:name_end]
+
+    if verbose: print("Name: %s" % name)
+
+    # If there are arguments, grab them.
+    if in_text[i] == '[':
+        arguments_start = i+1
+        arguments_end = scan_matching(in_text, i) - 1
+        arguments = in_text[arguments_start:arguments_end]
+        i = arguments_end + 1
+        if verbose: print("Arguments:", arguments)
+    else:
+        if verbose: print("No arguments.")
+        arguments = None
+
+    # If there is a body, grab it.
+    if in_text[i] == '{':
+        body_start = i+1
+        body_end = scan_matching(in_text, i) - 1
+        body = in_text[body_start:body_end]
+        i = body_end + 1
+        if verbose: print("Body:", body)
+    else:
+        if verbose: print("No body.")
+        body = None
+    
+    return (bang_index, i, name, arguments, body)
+
+def expand_template(config, name, arguments, body):
+    # The name we get might actually be a series of template names, separated by
+    # plus signs.  Separate them.
+    names = name.split('+')
+
+    # Get the template specification for each of these names. 
+    specs = list()
+    for name1 in names:
+        try:
+            specs.append(config['templates'][name1])
+        except KeyError:
+            raise Exception('Template %s is not defined.' % name1)
+
+    # If there are multiple templates, then they should all refer to one single
+    # base template.  If there's just one, it could be a base template or an
+    # inherited one.  Let's figure out which we have.
+    if len(specs) == 0:
+        raise Exception("Template instance seems to be missing a name.")
+    elif len(specs) > 1:
+        blend = True
+    elif 'inherit_from' in specs[0]:
+        blend = True
+    else:
+        blend = False
+
+    # Find the template that we'll actually use for the expansion.
+    if blend:
+        # Blended -- Make sure everyone inherits from the same place, and inherit
+        # from there.
+        base_name = None
+        for spec in specs:
+            try:
+                this_base_name = spec['inherit_from']
+            except KeyError:
+                raise Exception('In blended template %s, one of the templates is missing its inherit_from. %s' % (name, spec))
+            if base_name is None:
+                base_name = this_base_name
+            elif base_name != this_base_name:
+                raise Exception("Cannot blend templates %s, because they inherit from different bases %s and %s" % (name, base_name, this_base_name))
+        base_spec = config['templates'][base_name]
+    else:
+        # Not blended -- Just use that template.
+        base_name = name
+        base_spec = config['templates'][name]
+
+    # Now let's build a dictionary of values to insert into the macro text,
+    # starting with the instance body.
+    values = dict()
+    values['body'] = body
+
+    # If it's a blended template, add the values given in those inherited templates.
+    if blend:
+        for spec in specs:
+            for arg in [base_spec['default_arg'], ] + list(base_spec['special_args'].values()):
+                if arg in spec:
+                    val = spec[arg]
+                    if arg in values:
+                        values[arg] += val
+                    else:
+                        values[arg] = val
+
+    # Add in anything specified in the arguments to this instace.
+    if arguments is not None:
+        if 'default_arg' in base_spec:
+            current_arg = base_spec['default_arg']
+            if current_arg not in values: values[current_arg] = ""
+        else:
+            current_arg = None
+        for c in arguments:
+            if 'special_args' in base_spec and c in base_spec['special_args']:
+                current_arg = base_spec['special_args'][c]
+                if current_arg not in values: values[current_arg] = ""
+            elif not current_arg:
+                raise Exception('Template %s instantiated with arguments (%s) that include a default argument, but the template spec has no default argument.' % (name, arguments))
+            else:
+                values[current_arg] += c
+
+
+    # Construct the final string by replacing $arg and ?arg markers in the text
+    # with the appropriate values.
+    try:
+        text = base_spec['text']
+    except KeyError:
+        raise Exception('Template %s has no text field.' % base_name)
+
+    text = re.sub(r'\$\$', '_____DOLLAR_____', text)
+    text = re.sub(r'\?\?', '_____QUESTION____', text)
+
+    def sub_arg_required(match):
+        val_name = match.group(1)
+        try:
+            value = values[val_name]
+            return value
+        except KeyError:
+            raise Exception("Template %s needs a %s, which is missing." % (name, val_name))
+    text = re.sub(r'\$([A-Za-z]+)', sub_arg_required, text)
+
+    def sub_arg_optional(match):
+        val_name = match.group(1)
+        try:
+            value = values[val_name]
+            return value
+        except KeyError:
+            return ""
+    text = re.sub(r'\?([A-Za-z]+)', sub_arg_optional, text)
+
+    text = re.sub('_____DOLLAR_____', '$', text)
+    text = re.sub('_____QUESTION____', '?', text)
+
+    return text
+
+
+def bang(config, text):
+    # Find a template in the given string.  Replace it with its appropriate
+    # expansion.  Repeat until no templates are left.
+    
+    while True:
+        ft_result = find_template(text, 0)
+        if ft_result is None: break
+        (template_start, template_end, name, arguments, body) = ft_result
+        expansion = expand_template(config, name, arguments, body)
+        text = text[:template_start] + expansion + text[template_end:]
+
+    return text
+
+
+def check_config(config):
+    # Perform some sanity checks on a given configuration.
+    if config is None:
+        raise Exception("No configuration given.")
+
+    for template_name in config['templates']:
+        template = config['templates'][template_name]
+        has_text = 'text' in template
+        has_inherit_from = 'inherit_from' in template
+        if has_text and has_inherit_from:
+            raise Exception("Template %s has both text and inherit_from fields." % template_name)
+        if not has_text and not has_inherit_from:
+            raise Exception("Template %s has neither text nor inherit_from fields." % template_name)
+        if has_inherit_from and template['inherit_from'] not in config['templates']:
+            raise Exception('Template %s inherits from %s, but %s is not defined.' % (template_name, template['inherit_from'], template['inherit_from']))
+
+
+
+
+def main(args):
+    # Read the input.
+    text = open(args.input_filename, 'r').read()
+
+    # Read the configuration.
+    config = yaml.safe_load(open(args.config))
+    check_config(config)
+    # Perform any substitutions requested by the config.
+    for sub in config['substitutions']:
+        if 'flags' in sub:
+            text = re.sub(sub['from'], sub['to'], text, flags=eval(sub['flags']))
+        else:
+            text = re.sub(sub['from'], sub['to'], text)
+
+    # Expand any templates.
+    text = bang(config, text)
+
+    # Save the answer.
+    open(args.output_filename, 'w').write(text)
+
+def go():
+    # Sort out the command line.
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input', '-i', dest='input_filename', help='input filename', required=True)
+    parser.add_argument('--output', '-o', dest='output_filename', help='output filename', required=True)
+    parser.add_argument('--config', '-c', dest='config', help='configuration filename', required=True)
+    parser.add_argument('--debug', '-d', dest='debug', help='show stack traces', action='store_true')
+    args = parser.parse_args()
+
+    # We only want stack traces in debug mode.
+    if args.debug:
+        main(args)
+    else:
+        try:
+            main(args)
+        except Exception as e:
+            print("bang:", e, file=sys.stderr)
+            sys.exit(1) 
+
+
+
+
+
+if __name__ == '__main__':
+    go()
+
+

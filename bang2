@@ -220,6 +220,9 @@ def check_config(config):
     if config is None:
         raise Exception("No configuration given.")
 
+    if set(config.keys()) != set(['templates', 'substitutions']):
+        raise Exception(f"Top level of config should have 'templates' and 'substitions'.  Has {list(config.keys())} instead.")
+
     for template_name in config['templates']:
         template = config['templates'][template_name]
         has_text = 'text' in template
@@ -241,6 +244,7 @@ def main(args):
     # Read the configuration.
     config = yaml.safe_load(open(args.config))
     check_config(config)
+
     # Perform any substitutions requested by the config.
     for sub in config['substitutions']:
         if 'flags' in sub:

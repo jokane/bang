@@ -238,19 +238,19 @@ def main(args):
     # Read the input.
     text = open(args.input_filename, 'r').read()
 
-  # Look for a config directive in the input.  Making config a list is a Python
-  # 2 hack to get data out of the callback function into a local variable here.
-  config = [None, ]
-  def grab_config(match):
-    config_file_name = match.group(1)
-    try:
-      config[0] = yaml.full_load(open(config_file_name, 'r'))
-    except Exception as e:
-      raise Exception("Error reading configuration %s: %s" % (config_file_name, e))
-    return ""
-  text = re.sub(r'^#config (.*)', grab_config, text, flags=re.M)
-  config = config[0]
-  check_config(config)
+    # Look for a config directive in the input.  Making config a list is a Python
+    # 2 hack to get data out of the callback function into a local variable here.
+    config = [None, ]
+    def grab_config(match):
+      config_file_name = match.group(1)
+      try:
+        config[0] = yaml.full_load(open(config_file_name, 'r'))
+      except Exception as e:
+        raise Exception("Error reading configuration %s: %s" % (config_file_name, e))
+      return ""
+    text = re.sub(r'^#config (.*)', grab_config, text, flags=re.M)
+    config = config[0]
+    check_config(config)
 
     # Look for an output extension directive in the input.
     outext = [None, ]

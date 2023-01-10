@@ -58,7 +58,7 @@ def find_template(in_text, start):
     name_start = i
 
     # Where does the name of the first template end?
-    while in_text[i].isalnum() or in_text[i] in '+':
+    while in_text[i].isalnum() or in_text[i] in '+_':
         i+=1
     name_end = i
     name = in_text[name_start:name_end]
@@ -166,6 +166,11 @@ def expand_template(config, name, arguments, body):
             else:
                 values[current_arg] += c
 
+    # If we didn't get a value for the default argument, try to use the default value instead.
+    if 'default_arg' in base_spec and 'default_arg_default_value' in base_spec and base_spec['default_arg'] not in values:
+        values[base_spec['default_arg']] = base_spec['default_arg_default_value']
+
+
 
     # Construct the final string by replacing $arg and ?arg markers in the text
     # with the appropriate values.
@@ -184,7 +189,7 @@ def expand_template(config, name, arguments, body):
             return value
         except KeyError:
             raise Exception("Template %s needs a %s, which is missing." % (name, val_name))
-    text = re.sub(r'\$([A-Za-z]+)', sub_arg_required, text)
+    text = re.sub(r'\$([A-Za-z_]+)', sub_arg_required, text)
 
     def sub_arg_optional(match):
         val_name = match.group(1)

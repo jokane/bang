@@ -246,7 +246,7 @@ def expand_template(config, name, arguments, body):
 
             return value
         except KeyError:
-            raise Exception("Template %s needs a %s, which is missing." % (name, val_name))
+            raise Exception("Template %s needs a %s, which is missing.\n  With these arguments: %s\n  With this body: %s" % (name, val_name, arguments, body))
     text = re.sub(r'\$([A-Za-z_]+)', sub_arg_required, text)
 
     if verbose:

@@ -137,7 +137,7 @@ def expand_template(config, name, arguments, body):
         if 'base' in spec and base_name is None:
              base_name = spec['base']
         elif 'base' in spec and base_name!=spec['base']:
-             raise Exception('Conflicting base templates: {base_name} and {spec["base"]}')
+             raise Exception(f'Conflicting base templates: {base_name} and {spec["base"]}')
       
     if base_name:
         if verbose:
